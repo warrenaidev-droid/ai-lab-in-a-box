@@ -1,0 +1,13 @@
+# Runtime state — never commit (models, DB files, secrets, backups)
+data/
+backups/
+.env
+
+# Per-deployment folders may hold names/domains/notes — track only the template.
+clients/*/
+!clients/_template/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp

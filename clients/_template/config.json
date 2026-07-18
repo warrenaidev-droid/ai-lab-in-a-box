@@ -1,0 +1,14 @@
+{
+  "_comment": "Per-client deployment record. Copy this folder to clients/<slug>/, fill it in, then set the matching values in that box's .env and run setup. This file documents what was chosen; .env is the file the stack actually reads.",
+  "slug": "acme-auto",
+  "display_name": "Acme Auto Group",
+  "hardware_tier": "MINI",
+  "hardware_notes": "e.g. Intel N100, 16GB RAM, CPU-only",
+  "default_model": "llama3.2:3b",
+  "embed_model": "nomic-embed-text",
+  "compose_profiles": [],
+  "remote_access": "tailscale",
+  "domain": "",
+  "deployed_on": "",
+  "notes": "Free-text: what this box is used for, who has access, backup schedule."
+}

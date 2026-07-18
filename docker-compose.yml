@@ -1,0 +1,160 @@
+# AI Lab in a Box — portable self-hosted AI + automation stack
+#
+#   v1 (default):        ollama + open-webui           -> local ChatGPT + document knowledge base
+#   COMPOSE_PROFILES=automation   adds  n8n + postgres  -> automation server (Phase 2)
+#   COMPOSE_PROFILES=vector       adds  qdrant          -> dedicated vector DB for large corpora
+#   COMPOSE_PROFILES=proxy        adds  caddy           -> auto-HTTPS reverse proxy for client demos
+#
+# All runtime state lives in ./data (bind mounts) so the whole stack is "copy the folder to back up / migrate".
+# Keep this folder on the WSL2 ext4 filesystem (e.g. ~/ai-projects/...), NEVER under /mnt/c — bind-mount I/O
+# across the Windows boundary is dramatically slow and will cripple the database.
+#
+# Image tags are pinned on purpose (never :latest) so a rebuild is identical. Bump them via scripts/update.
+name: ai-lab-in-a-box
+
+x-restart: &restart
+  restart: unless-stopped                 # 24/7 always-on; survives reboots, respects manual stop
+
+services:
+  # ------------------------------------------------------------------ LLM runtime
+  ollama:
+    image: ollama/ollama:0.5.13
+    <<: *restart
+    # No host port by default — open-webui reaches it internally at http://ollama:11434.
+    # Uncomment to expose the raw Ollama API on the host (e.g. for n8n / external tools).
+    # Over Tailscale this becomes reachable on the tailnet, so only expose it if you need to.
+    # ports:
+    #   - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ./data/ollama:/root/.ollama       # model blobs + manifests (GBs) — re-pullable
+    environment:
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}   # unload model after idle to free RAM on the mini PC
+      - OLLAMA_MAX_LOADED_MODELS=1                    # mini PC: one model in RAM at a time
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 5g                       # room for model load + inference on a 12 GB box
+
+  # ------------------------------------------------------------------ AI UI + RAG knowledge base
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.5.20
+    <<: *restart
+    ports:
+      - "${OPEN_WEBUI_PORT:-3000}:8080"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ./data/open-webui:/app/backend/data   # users, chats, uploaded docs, built-in vector store
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-false}         # true only for first admin signup, then set false
+      - DEFAULT_MODELS=${DEFAULT_MODEL:-llama3.2:3b}
+      - RAG_EMBEDDING_ENGINE=ollama
+      - RAG_EMBEDDING_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - VECTOR_DB=${VECTOR_DB:-chroma}                # chroma (built-in, mini PC) | qdrant (needs vector profile)
+      - QDRANT_URI=http://qdrant:6333                 # only used when VECTOR_DB=qdrant
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # ------------------------------------------------------------------ Automation (Phase 2 — profile: automation)
+  n8n:
+    image: n8nio/n8n:1.75.2
+    <<: *restart
+    profiles: ["automation"]
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data/n8n:/home/node/.n8n           # encrypted credentials + workflow binary data
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-warrenlab}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-warrenlab}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}      # MUST persist unchanged or stored creds won't decrypt
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      - GENERIC_TIMEZONE=${TZ:-Asia/Dubai}
+      - TZ=${TZ:-Asia/Dubai}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  postgres:
+    image: postgres:16.6-alpine
+    <<: *restart
+    profiles: ["automation"]
+    # Internal only (no host port) — n8n reaches it by service name. Safer default.
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-warrenlab}
+      - POSTGRES_USER=${POSTGRES_USER:-warrenlab}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-warrenlab} -d ${POSTGRES_DB:-warrenlab}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ------------------------------------------------------------------ Dedicated vector DB (profile: vector)
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    <<: *restart
+    profiles: ["vector"]
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ------------------------------------------------------------------ Reverse proxy / auto-HTTPS (profile: proxy)
+  caddy:
+    image: caddy:2.8-alpine
+    <<: *restart
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    depends_on:
+      - open-webui

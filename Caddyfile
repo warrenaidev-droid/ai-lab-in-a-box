@@ -1,0 +1,19 @@
+# AI Lab in a Box — Caddy reverse proxy (only used with COMPOSE_PROFILES=proxy).
+#
+# For most setups you DON'T need this — Tailscale already gives you secure remote access at
+# http://<tailnet-name>:3000. Use Caddy only when you want a real public domain with auto-HTTPS
+# for a client demo, and you can point that domain's DNS at this box and forward ports 80/443.
+#
+# Replace lab.example.com with your domain, then:  COMPOSE_PROFILES=proxy docker compose up -d
+# Caddy fetches + renews a Let's Encrypt certificate automatically.
+
+lab.example.com {
+    encode gzip
+    reverse_proxy open-webui:8080
+}
+
+# Optional: expose n8n on its own subdomain (requires the "automation" profile too).
+# n8n.example.com {
+#     encode gzip
+#     reverse_proxy n8n:5678
+# }
