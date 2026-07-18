@@ -24,6 +24,11 @@ by changing a single line.
 > **Windows note:** Docker Desktop uses a WSL2 Linux environment. Keep this folder **inside** the
 > WSL2 Linux filesystem (e.g. `~/ai-lab-in-a-box`), **not** under `/mnt/c/...` — files on the
 > Windows side make the containers dramatically slow.
+>
+> **Windows tip:** if the `docker` command seems "not found" in your Ubuntu/WSL window, Docker Desktop
+> is probably in **Resource Saver mode** — press ▶ in Docker Desktop to wake it, wait for the green
+> **"Engine running"**, then retry. (Also make sure **Settings → Resources → WSL Integration → Ubuntu**
+> is on.)
 
 ## Quick start
 
@@ -38,8 +43,12 @@ bash scripts/setup.sh
 ```
 
 The script generates its own secrets, creates the data folders, starts the stack, and downloads the
-default model. When it finishes, open **http://localhost:3000**, create the first account (it becomes
-the admin — nobody else can self-register), pick the `llama3.2:3b` model, and start chatting.
+default model. When it finishes, open **http://localhost:3000** and create the first account — it
+becomes the **admin**. Then pick the `llama3.2:3b` model and start chatting.
+
+> **Lock sign-ups after first run:** the Lab ships with `ENABLE_SIGNUP=true` so you can create that
+> first admin account. Once you're in, set `ENABLE_SIGNUP=false` in `.env` and run
+> `docker compose up -d` again so nobody else can register.
 
 ## What's running
 
@@ -88,11 +97,31 @@ first).
 | Restore | `bash scripts/restore.sh backups/<ts>` · `scripts\restore.ps1 -Snapshot backups\<ts>` |
 | Update images | `bash scripts/update.sh` · `scripts\update.ps1` |
 
-## Back up / move to another machine
+## Back up, and move to another machine (keeping your history)
 
-All state lives in `./data`, so a backup is just an archive of that folder — the scripts do it safely
-(and include a database dump when the automation profile is on). To migrate, copy the folder (or a
-restored backup) to the new machine and run the setup script.
+All state lives in `./data`. `backup.sh` snapshots it safely into `backups/<timestamp>/` — your
+account, chats, and uploaded documents (plus a Postgres dump when the automation profile is on). The
+large model files are **skipped by default** because they re-download automatically, keeping the
+snapshot small.
+
+**Back up:**
+```bash
+bash scripts/backup.sh            # Windows: scripts\backup.ps1  (add --with-models / -WithModels to include model files)
+```
+
+**Move to a new machine, with all your history:**
+1. On the new machine, do a normal **clean install first** (clone the repo + run `setup`).
+2. Copy the `backups/<timestamp>/` folder from the old machine to the new machine's `backups/` folder
+   (via a USB stick, a shared drive, or a cloud folder like OneDrive/Dropbox).
+3. Restore it **on top** of the clean install:
+   ```bash
+   bash scripts/restore.sh backups/<timestamp>      # Windows: scripts\restore.ps1 -Snapshot backups\<timestamp>
+   ```
+4. Open `http://localhost:3000` and sign in with your **existing account** — chats and documents are
+   all there. (You may need to log in again after a move; your data is intact.)
+
+> Migrating the *whole box* (not just history) is even simpler: copy the entire folder to the new
+> machine and run `setup` — everything's in `./data`.
 
 ## Deploy for someone else
 
