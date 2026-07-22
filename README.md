@@ -77,6 +77,15 @@ Change **one line** — `DEFAULT_MODEL` in `.env` — then run the pull-models s
 
 On a very small/slow box, `gemma2:2b` is a lighter, faster fallback (weaker reasoning).
 
+### Got an NVIDIA GPU?
+Layer the GPU override on so the model runs on the graphics card instead of the CPU:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
+See **[docs/laptop-offline-client-runbook.md](docs/laptop-offline-client-runbook.md)** for a full
+worked profile — a GPU laptop used for **AI-assisted client work under a "no online AI" NDA**
+(offline-only, tuned models, and wiring a local MCP tool like Power BI to the model).
+
 ## Reach it from other devices
 
 The simplest secure way is [**Tailscale**](https://tailscale.com): install it on the host machine and

@@ -1,0 +1,32 @@
+# GPU override for AI Lab in a Box — for boxes with an NVIDIA GPU (e.g. a Legion / RTX laptop).
+# Layers on top of docker-compose.yml so the base file stays CPU-only for mini PCs.
+#
+# Usage (add -f docker-compose.gpu.yml to every compose command, or set COMPOSE_FILE in .env):
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Requirements:
+#   - An NVIDIA GPU + a current GeForce / Studio driver on the host.
+#   - Windows: Docker Desktop (WSL2 backend). GPU passthrough is built in — no extra toolkit needed,
+#              the standard GeForce driver already ships the WSL2 CUDA runtime.
+#   - Linux:   install the NVIDIA Container Toolkit (nvidia-ctk) so Docker can see the GPU.
+#
+# Verify the GPU is actually in use after start:
+#   docker exec ai-lab-in-a-box-ollama-1 ollama ps      # PROCESSOR should read "100% GPU" (or a GPU/CPU split)
+name: ai-lab-in-a-box
+
+services:
+  ollama:
+    environment:
+      # A laptop/GPU box has RAM to spare, so keep the model warm longer than the mini-PC default.
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+    deploy:
+      resources:
+        limits:
+          # Headroom for a 14B model + KV cache when layers that don't fit in VRAM spill to system RAM.
+          # Raise toward 40g if you run a 32B model. (Overrides the 5g mini-PC limit in the base file.)
+          memory: 24g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all           # all NVIDIA GPUs; Ollama ignores the Intel iGPU and uses CUDA only
+              capabilities: [gpu]
