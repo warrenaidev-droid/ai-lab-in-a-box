@@ -10,7 +10,7 @@ by changing a single line.
 > or hand it to anyone — they just run the setup script on their own box.
 
 - **Runs by default:** [Ollama](https://ollama.com) (local LLM) + [Open WebUI](https://openwebui.com) (ChatGPT-style UI + document knowledge base / RAG)
-- **One flag away:** [n8n](https://n8n.io) automation, a [Qdrant](https://qdrant.tech) vector DB, and a [Caddy](https://caddyserver.com) HTTPS proxy — pre-built, off until you want them
+- **One flag away:** [n8n](https://n8n.io) automation, an [mcpo](https://github.com/open-webui/mcpo) tool server (give the model real tools), a [Qdrant](https://qdrant.tech) vector DB, and a [Caddy](https://caddyserver.com) HTTPS proxy — pre-built, off until you want them
 - **No cloud, no API keys, no per-token bills.** The model runs on your own CPU.
 
 ---
@@ -58,6 +58,7 @@ becomes the **admin**. Then pick the `llama3.2:3b` model and start chatting.
 | Open WebUI | ✅ | http://localhost:3000 | The chat UI + upload documents for the AI to answer from |
 | n8n | profile `automation` | http://localhost:5678 | Build automations / workflows |
 | Postgres | profile `automation` | internal | Database behind n8n |
+| mcpo (tool server) | profile `tools` | internal | Gives the model real tools (DB/file/API) — see [tools/](tools/) |
 | Qdrant | profile `vector` | http://localhost:6333 | Vector DB for large document collections |
 | Caddy | profile `proxy` | :80 / :443 | Auto-HTTPS on a real domain for public demos |
 

@@ -32,7 +32,7 @@ Set-Secret 'N8N_ENCRYPTION_KEY' 32
 Set-Secret 'POSTGRES_PASSWORD' 24
 
 # --- 3. Data dirs ---
-'data/ollama','data/open-webui','data/n8n','data/postgres','data/qdrant','data/caddy','backups' |
+'data/ollama','data/open-webui','data/n8n','data/postgres','data/toolserver','data/qdrant','data/caddy','backups' |
   ForEach-Object { New-Item -ItemType Directory -Force -Path $_ | Out-Null }
 Say "data directories ready"
 

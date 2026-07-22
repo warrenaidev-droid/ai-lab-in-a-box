@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to ../data/toolserver/mcpo-config.json and edit. Each entry becomes an OpenAPI route (/<name>) that Open WebUI can call. This example uses a Python (uvx) server that runs inside the mcpo image as-is. npx/Node servers (filesystem, reference postgres) need a Node-enabled image or host-run mcpo — see README.md.",
+  "mcpServers": {
+    "time": {
+      "command": "uvx",
+      "args": ["mcp-server-time", "--local-timezone=Asia/Dubai"]
+    }
+  }
+}
