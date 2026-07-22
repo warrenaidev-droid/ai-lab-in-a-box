@@ -2,6 +2,7 @@
 #
 #   v1 (default):        ollama + open-webui           -> local ChatGPT + document knowledge base
 #   COMPOSE_PROFILES=automation   adds  n8n + postgres  -> automation server (Phase 2)
+#   COMPOSE_PROFILES=tools        adds  mcpo            -> tool server: gives the model real tools (Phase 3)
 #   COMPOSE_PROFILES=vector       adds  qdrant          -> dedicated vector DB for large corpora
 #   COMPOSE_PROFILES=proxy        adds  caddy           -> auto-HTTPS reverse proxy for client demos
 #
@@ -126,6 +127,27 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ------------------------------------------------------------------ Tool server (Phase 3 — profile: tools)
+  # Bridges MCP tool servers -> one OpenAPI server that Open WebUI calls, giving the model real tools
+  # (query a database, read/write files, hit an API). Config lives in ./data/toolserver/mcpo-config.json
+  # (copy from tools/mcpo-config.example.json). Register inside Open WebUI at http://toolserver:8000.
+  # NOTE: this image runs Python (uvx) MCP servers out of the box. npx/Node-based servers (e.g. the
+  # reference filesystem/postgres MCPs) need a Node-enabled image or running mcpo on the host — see tools/README.
+  toolserver:
+    image: ghcr.io/open-webui/mcpo:git-788ff92    # = release v0.0.20 (mcpo publishes git-sha tags, not semver)
+    <<: *restart
+    profiles: ["tools"]
+    # No host port — open-webui reaches it internally at http://toolserver:8000. Do NOT route via Caddy.
+    command: ["--host", "0.0.0.0", "--port", "8000", "--config", "/config/mcpo-config.json"]
+    volumes:
+      - ./data/toolserver:/config:ro          # mcpo-config.json (tool definitions) — copy from tools/
+    environment:
+      - TZ=${TZ:-Asia/Dubai}
     deploy:
       resources:
         limits:

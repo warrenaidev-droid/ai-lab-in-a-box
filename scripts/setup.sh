@@ -39,7 +39,7 @@ fill N8N_ENCRYPTION_KEY 32
 fill POSTGRES_PASSWORD 24
 
 # --- 3. Data dirs -------------------------------------------------------------
-mkdir -p data/ollama data/open-webui data/n8n data/postgres data/qdrant data/caddy backups
+mkdir -p data/ollama data/open-webui data/n8n data/postgres data/toolserver data/qdrant data/caddy backups
 say "data directories ready"
 
 # --- 4. Up + models -----------------------------------------------------------
